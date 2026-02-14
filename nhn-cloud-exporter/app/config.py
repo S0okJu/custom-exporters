@@ -1,0 +1,131 @@
+"""
+Configuration for NHN Cloud Exporter.
+"""
+from enum import Enum
+from functools import lru_cache
+from pydantic_settings import BaseSettings
+from pydantic import Field
+
+
+class Environment(str, Enum):
+    """Application environment modes."""
+    DEV = "DEV"
+    PRODUCTION = "PRODUCTION"
+
+
+class Settings(BaseSettings):
+    """Application settings loaded from environment variables."""
+    
+    # Environment
+    environment: Environment = Field(
+        default=Environment.DEV,
+        description="Application environment: DEV or PRODUCTION"
+    )
+    
+    # Application
+    app_name: str = Field(default="NHN Cloud Exporter")
+    app_version: str = Field(default="1.0.0")
+    debug: bool = Field(default=False)
+    
+    # NHN Cloud API Authentication
+    # Appkey 방식 (DNS Plus, CDN 등)
+    nhn_appkey: str = Field(default="", description="NHN Cloud Appkey")
+    
+    # IAM 인증 (Load Balancer, RDS 등)
+    nhn_iam_user: str = Field(default="", description="IAM 사용자명")
+    nhn_iam_password: str = Field(default="", description="IAM 비밀번호")
+    nhn_tenant_id: str = Field(default="", description="Tenant ID")
+    nhn_auth_url: str = Field(
+        default="https://api-identity-infrastructure.nhncloudservice.com/v2.0",
+        description="IAM 인증 URL"
+    )
+    
+    # API Endpoints
+    nhn_dnsplus_api_url: str = Field(
+        default="https://dnsplus.api.nhncloudservice.com",
+        description="DNS Plus API URL"
+    )
+    nhn_lb_api_url: str = Field(
+        default="https://kr1-api-network-infrastructure.nhncloudservice.com",
+        description="Load Balancer API URL"
+    )
+    nhn_rds_api_url: str = Field(
+        default="https://kr1-api-database-infrastructure.nhncloudservice.com",
+        description="RDS API URL"
+    )
+    nhn_cdn_api_url: str = Field(
+        default="https://cdn.api.nhncloudservice.com",
+        description="CDN API URL"
+    )
+    nhn_obs_api_url: str = Field(
+        default="https://kr1-api-object-storage.nhncloudservice.com",
+        description="Object Storage API URL"
+    )
+    
+    # Monitoring Configuration
+    metrics_collection_interval: int = Field(
+        default=60,
+        description="메트릭 수집 주기 (초)"
+    )
+    metrics_cache_ttl: int = Field(
+        default=30,
+        description="메트릭 캐시 TTL (초)"
+    )
+    
+    # Service-specific settings
+    # GSLB
+    gslb_enabled: bool = Field(default=True, description="GSLB 메트릭 수집 활성화")
+    
+    # Load Balancer
+    lb_enabled: bool = Field(default=True, description="Load Balancer 메트릭 수집 활성화")
+    lb_ids: str = Field(default="", description="모니터링할 Load Balancer ID 목록 (쉼표 구분)")
+    
+    # RDS
+    rds_enabled: bool = Field(default=True, description="RDS 메트릭 수집 활성화")
+    rds_instance_ids: str = Field(default="", description="모니터링할 RDS 인스턴스 ID 목록 (쉼표 구분)")
+    
+    # CDN
+    cdn_enabled: bool = Field(default=True, description="CDN 메트릭 수집 활성화")
+    cdn_service_ids: str = Field(default="", description="모니터링할 CDN 서비스 ID 목록 (쉼표 구분)")
+    
+    # OBS
+    obs_enabled: bool = Field(default=True, description="Object Storage 메트릭 수집 활성화")
+    obs_containers: str = Field(default="", description="모니터링할 컨테이너 목록 (쉼표 구분)")
+    
+    # Instance Metrics (Cloud Monitoring API)
+    instance_enabled: bool = Field(default=True, description="인스턴스 메트릭 수집 활성화")
+    instance_ids: str = Field(default="", description="모니터링할 인스턴스 ID 목록 (쉼표 구분)")
+    
+    # Service Operations Metrics (서비스 운영 지표)
+    service_operations_enabled: bool = Field(
+        default=True,
+        description="서비스 운영 지표 수집 활성화 (CDN 캐시 효율성, OBS 사용량, RDS 성능 등)"
+    )
+    
+    # Photo API Service Configuration
+    photo_api_obs_container: str = Field(
+        default="photo-container",
+        description="Photo API Object Storage 컨테이너 이름"
+    )
+    photo_api_cdn_app_key: str = Field(
+        default="",
+        description="Photo API CDN App Key (CDN 통계 조회용)"
+    )
+    photo_api_rds_instance_id: str = Field(
+        default="",
+        description="Photo API RDS 인스턴스 ID"
+    )
+    photo_api_lb_ids: str = Field(
+        default="",
+        description="Photo API Load Balancer ID 목록 (쉼표 구분, 트래픽 분산 효율성 모니터링)"
+    )
+    
+    class Config:
+        env_file = None
+        case_sensitive = False
+
+
+@lru_cache()
+def get_settings() -> Settings:
+    """Get cached settings instance."""
+    return Settings()
