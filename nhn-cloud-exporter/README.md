@@ -47,11 +47,16 @@ photo-api 서비스 운영에 필요한 핵심 지표:
 # Appkey (DNS Plus, CDN 등에 사용)
 NHN_APPKEY=your-appkey-here
 
-# IAM 인증 (Load Balancer, RDS 등에 사용)
+# IAM 인증 (Load Balancer, Object Storage 등에 사용)
 NHN_IAM_USER=your-iam-username
 NHN_IAM_PASSWORD=your-iam-password
 NHN_TENANT_ID=your-tenant-id
 NHN_AUTH_URL=https://api-identity-infrastructure.nhncloudservice.com/v2.0
+
+# RDS API (기본 URL: kr1-rds-mysql. 리전별 kr2, jp1 가능)
+# RDS API v3는 X-TC-* 헤더 사용. 아래를 설정하면 RDS 전용 인증으로 호출함 (권장)
+# NHN_ACCESS_KEY_ID=your-access-key-id
+# NHN_ACCESS_KEY_SECRET=your-access-key-secret
 
 # 서비스별 활성화
 GSLB_ENABLED=true

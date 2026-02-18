@@ -50,9 +50,12 @@ class Settings(BaseSettings):
         description="Load Balancer API URL"
     )
     nhn_rds_api_url: str = Field(
-        default="https://kr1-api-database-infrastructure.nhncloudservice.com",
-        description="RDS API URL"
+        default="https://kr1-rds-mysql.api.nhncloudservice.com",
+        description="RDS API URL (e.g. kr1-rds-mysql.api.nhncloudservice.com)"
     )
+    # RDS API v3 uses X-TC-* headers (not IAM token)
+    nhn_access_key_id: str = Field(default="", description="API User Access Key ID (RDS API)")
+    nhn_access_key_secret: str = Field(default="", description="API Secret Access Key (RDS API)")
     nhn_cdn_api_url: str = Field(
         default="https://cdn.api.nhncloudservice.com",
         description="CDN API URL"

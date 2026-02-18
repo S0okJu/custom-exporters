@@ -17,6 +17,7 @@ class NHNAuth:
         self.settings = get_settings()
         self._token: Optional[str] = None
         self._token_expires: Optional[datetime] = None
+        self._obs_storage_url: Optional[str] = None  # from token serviceCatalog
     
     async def get_iam_token(self) -> str:
         """
@@ -68,6 +69,8 @@ class NHNAuth:
                     self._token_expires = datetime.fromisoformat(
                         expires_str.replace("Z", "+00:00")
                     )
+                    # Object Storage URL from service catalog (for OBS)
+                    self._obs_storage_url = self._parse_obs_storage_url(access)
                     logger.info("IAM 토큰 발급 완료")
                 else:
                     raise ValueError("토큰 응답 형식이 올바르지 않습니다.")
@@ -79,6 +82,37 @@ class NHNAuth:
         except Exception as e:
             logger.error(f"IAM 토큰 발급 중 오류: {e}")
             raise
+    
+    def _parse_obs_storage_url(self, access: dict) -> Optional[str]:
+        """토큰 응답의 serviceCatalog에서 object-store publicURL 추출"""
+        try:
+            catalog = access.get("serviceCatalog", [])
+            for svc in catalog:
+                if svc.get("type") == "object-store":
+                    endpoints = svc.get("endpoints", [])
+                    if endpoints:
+                        return endpoints[0].get("publicURL") or endpoints[0].get("internalURL")
+            return None
+        except Exception:
+            return None
+    
+    def get_obs_storage_url(self) -> Optional[str]:
+        """Object Storage base URL (토큰 카탈로그 또는 설정 기반). OBS 수집 전 get_iam_token 호출 필요."""
+        return self._obs_storage_url
+    
+    def get_rds_auth_headers(self) -> Optional[dict]:
+        """
+        RDS API v3 인증 헤더 (X-TC-APP-KEY, X-TC-AUTHENTICATION-*).
+        설정되어 있으면 반환, 없으면 None (IAM 사용).
+        """
+        if not self.settings.nhn_appkey or not self.settings.nhn_access_key_id or not self.settings.nhn_access_key_secret:
+            return None
+        return {
+            "X-TC-APP-KEY": self.settings.nhn_appkey,
+            "X-TC-AUTHENTICATION-ID": self.settings.nhn_access_key_id,
+            "X-TC-AUTHENTICATION-SECRET": self.settings.nhn_access_key_secret,
+            "Content-Type": "application/json",
+        }
     
     def get_appkey(self) -> str:
         """Appkey 반환"""

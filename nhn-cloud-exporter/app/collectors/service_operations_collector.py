@@ -202,15 +202,18 @@ class ServiceOperationsCollector:
         metrics = []
         
         try:
-            headers = await self.auth.get_auth_headers(use_iam=True)
             token = await self.auth.get_iam_token()
-            
-            tenant_id = self.settings.nhn_tenant_id
-            account = f"AUTH_{tenant_id}"
             container_name = self.settings.photo_api_obs_container
             
-            api_url = self.settings.nhn_obs_api_url
-            container_info_url = f"{api_url}/v1/{account}/{container_name}"
+            base_url = self.auth.get_obs_storage_url()
+            if base_url:
+                base_url = base_url.rstrip("/")
+                container_info_url = f"{base_url}/{container_name}"
+            else:
+                tenant_id = self.settings.nhn_tenant_id
+                account = f"AUTH_{tenant_id}"
+                api_url = self.settings.nhn_obs_api_url
+                container_info_url = f"{api_url}/v1/{account}/{container_name}"
             
             async with httpx.AsyncClient(timeout=30.0) as client:
                 info_response = await client.head(
@@ -262,7 +265,9 @@ class ServiceOperationsCollector:
         metrics = []
         
         try:
-            headers = await self.auth.get_auth_headers(use_iam=True)
+            headers = self.auth.get_rds_auth_headers()
+            if not headers:
+                headers = await self.auth.get_auth_headers(use_iam=True)
             instance_id = self.settings.photo_api_rds_instance_id
             
             api_url = self.settings.nhn_rds_api_url

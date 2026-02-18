@@ -27,23 +27,25 @@ class OBSCollector:
         metrics = []
         
         try:
-            headers = await self.auth.get_auth_headers(use_iam=True)
             token = await self.auth.get_iam_token()
+            headers = {"X-Auth-Token": token, "Accept": "application/json"}
             
-            # Tenant ID로 계정 정보 추출
-            tenant_id = self.settings.nhn_tenant_id
-            account = f"AUTH_{tenant_id}"
-            
-            # 컨테이너 목록 조회
-            containers_url = f"{self.api_url}/v1/{account}"
+            # 스토리지 URL: 토큰 카탈로그 우선, 없으면 설정 기반
+            base_url = self.auth.get_obs_storage_url()
+            if base_url:
+                # publicURL 형식: https://.../v1/AUTH_xxx (끝에 슬래시 없음)
+                base_url = base_url.rstrip("/")
+                containers_url = base_url
+                account = base_url.split("/")[-1] if "/" in base_url else "default"
+            else:
+                tenant_id = self.settings.nhn_tenant_id
+                account = f"AUTH_{tenant_id}"
+                containers_url = f"{self.api_url}/v1/{account}"
             
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.get(
                     containers_url,
-                    headers={
-                        "X-Auth-Token": token,
-                        "Accept": "application/json"
-                    }
+                    headers=headers
                 )
                 response.raise_for_status()
                 containers = response.text.strip().split("\n") if response.text else []
@@ -75,7 +77,10 @@ class OBSCollector:
                         continue
                     
                     # 컨테이너 정보 조회
-                    container_info_url = f"{self.api_url}/v1/{account}/{container_name}"
+                    if base_url:
+                        container_info_url = f"{base_url}/{container_name}"
+                    else:
+                        container_info_url = f"{self.api_url}/v1/{account}/{container_name}"
                     try:
                         info_response = await client.head(
                             container_info_url,

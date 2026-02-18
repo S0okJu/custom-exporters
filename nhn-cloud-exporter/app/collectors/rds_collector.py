@@ -27,7 +27,10 @@ class RDSCollector:
         metrics = []
         
         try:
-            headers = await self.auth.get_auth_headers(use_iam=True)
+            # RDS API v3 uses X-TC-* headers; fall back to IAM if not configured
+            headers = self.auth.get_rds_auth_headers()
+            if not headers:
+                headers = await self.auth.get_auth_headers(use_iam=True)
             
             # RDS 인스턴스 목록 조회 (v3.0 API)
             url = f"{self.api_url}/rds/api/v3.0/db-instances"
