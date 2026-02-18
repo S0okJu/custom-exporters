@@ -29,8 +29,14 @@ class NHNAuth:
         use_obs_password=True 이고 NHN_OBS_API_PASSWORD가 설정되어 있으면,
         OBS 전용 API 비밀번호로 토큰 발급(캐시는 별도).
         """
-        password = self.settings.nhn_obs_api_password if (use_obs_password and self.settings.nhn_obs_api_password) else self.settings.nhn_iam_password
-        cache_obs = use_obs_password and self.settings.nhn_obs_api_password
+        use_obs_pw = use_obs_password and bool(self.settings.nhn_obs_api_password and self.settings.nhn_obs_api_password.strip())
+        if use_obs_password and not use_obs_pw:
+            logger.warning(
+                "OBS 토큰: NHN_OBS_API_PASSWORD가 비어 있음. IAM 비밀번호로 발급 중이며 403 나올 수 있음. "
+                ".env에 NHN_OBS_API_PASSWORD=콘솔_Set_API_Password_값 을 넣고 컨테이너 재시작하세요."
+            )
+        password = self.settings.nhn_obs_api_password.strip() if use_obs_pw else self.settings.nhn_iam_password
+        cache_obs = use_obs_pw
         
         now_utc = datetime.now(timezone.utc)
         if cache_obs:
@@ -93,7 +99,7 @@ class NHNAuth:
                     self._token_obs_expires = expires_dt
                     self._obs_storage_url_obs = storage_url
                     self._obs_storage_url = storage_url
-                    logger.info("IAM 토큰 발급 완료 (OBS API 비밀번호)")
+                    logger.info("IAM 토큰 발급 완료 (OBS API 비밀번호 사용)")
                 else:
                     self._token = token_id
                     self._token_expires = expires_dt

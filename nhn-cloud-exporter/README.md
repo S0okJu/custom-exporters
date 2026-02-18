@@ -108,6 +108,31 @@ Object Storage 메트릭 수집 시 **403 Forbidden** 이 나오면, **OBS 전�
 - **`NHN_OBS_API_PASSWORD`** 를 쓰면 콘솔 로그인 비밀번호는 `NHN_IAM_PASSWORD`에 두고, OBS만 API 비밀번호로 토큰을 받을 수 있습니다.
 - 해당 IAM 사용자(`NHN_IAM_USER`)가 Object Storage를 쓰는 **프로젝트(테넌트)** 멤버여야 합니다.
 
+#### 환경 변수 전체 목록 (config.py 기준, 누락 확인용)
+
+| 환경 변수 | 용도 | 비고 |
+|-----------|------|------|
+| `NHN_APPKEY` | CDN/DNS/RDS(X-TC-APP-KEY) | 필수 |
+| `NHN_IAM_USER` | IAM 사용자(이메일) | 필수 |
+| `NHN_IAM_PASSWORD` | IAM 비밀번호 | 필수 (OBS만 쓸 때는 API 비밀번호로 통일 가능) |
+| `NHN_TENANT_ID` | 테넌트 ID | 필수 |
+| `NHN_AUTH_URL` | Identity URL | 기본값 있음 |
+| **`NHN_OBS_API_PASSWORD`** | **OBS Set API Password 값** | **OBS 403 시 필수** |
+| `NHN_ACCESS_KEY_ID` | RDS API v3 인증 | RDS 메트릭 권장 |
+| `NHN_ACCESS_KEY_SECRET` | RDS API v3 인증 | RDS 메트릭 권장 |
+| `NHN_RDS_API_URL` | RDS API 엔드포인트 | 기본: kr1-rds-mysql |
+| `NHN_OBS_API_URL` | Object Storage API | 기본: kr1-api-object-storage |
+| `NHN_CDN_API_URL` | CDN API | 기본값 있음 |
+| `NHN_DNSPLUS_API_URL` | DNS Plus API | 기본값 있음 |
+| `NHN_LB_API_URL` | Load Balancer API | 기본값 있음 |
+| `*_ENABLED` | GSLB/LB/RDS/CDN/OBS/INSTANCE/SERVICE_OPERATIONS | true/false |
+| `*_IDS` / `*_CONTAINERS` / `*_SERVICE_IDS` | 리소스 필터(쉼표 구분) | 선택 |
+| `PHOTO_API_*` | 서비스 운영 지표용 | 해당 시만 |
+| `METRICS_COLLECTION_INTERVAL` | 수집 주기(초) | 기본 60 |
+| `METRICS_CACHE_TTL` | 캐시 TTL(초) | 기본 30 |
+
+**코드/설정 변경 후:** `docker compose build --no-cache && docker compose up -d` 로 이미지를 다시 빌드해야 404/403 시 WARNING만 나오는 최신 동작이 반영됩니다.
+
 ### 2. 로컬 실행
 
 ```bash
