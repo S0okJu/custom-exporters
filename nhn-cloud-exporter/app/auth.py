@@ -2,7 +2,7 @@
 NHN Cloud API Authentication
 """
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 import httpx
 from app.config import get_settings
@@ -22,11 +22,12 @@ class NHNAuth:
         """
         IAM 토큰 획득 (캐싱 및 자동 갱신)
         """
-        # 토큰이 유효하면 반환
+        # 토큰이 유효하면 반환 (timezone-aware 비교)
+        now_utc = datetime.now(timezone.utc)
         if (
             self._token 
             and self._token_expires 
-            and datetime.utcnow() < self._token_expires - timedelta(minutes=5)
+            and now_utc < self._token_expires - timedelta(minutes=5)
         ):
             return self._token
         
