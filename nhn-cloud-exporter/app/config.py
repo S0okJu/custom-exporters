@@ -94,6 +94,9 @@ class Settings(BaseSettings):
     # OBS
     obs_enabled: bool = Field(default=True, description="Object Storage 메트릭 수집 활성화")
     obs_containers: str = Field(default="", description="모니터링할 컨테이너 목록 (쉼표 구분)")
+    # Object Storage 전용 API 비밀번호 (콘솔 Object Storage > API Endpoint 설정 > Set API Password)
+    # 설정 시 OBS 요청만 이 비밀번호로 토큰 발급. 비우면 NHN_IAM_PASSWORD 사용.
+    nhn_obs_api_password: str = Field(default="", description="OBS API 비밀번호 (Set API Password 값)")
     
     # Instance Metrics (Cloud Monitoring API)
     instance_enabled: bool = Field(default=True, description="인스턴스 메트릭 수집 활성화")

@@ -81,6 +81,9 @@ class ServiceOperationsCollector:
             
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.get(services_url, headers=headers)
+                if response.status_code == 404:
+                    logger.warning("CDN 서비스 목록 404 - CDN 미사용 시 정상입니다.")
+                    return metrics
                 response.raise_for_status()
                 data = response.json()
                 
@@ -192,6 +195,11 @@ class ServiceOperationsCollector:
                 except Exception as e:
                     logger.warning(f"CDN 통계 조회 중 오류: {e}")
                 
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code in (403, 404):
+                logger.warning("CDN 운영 지표 404/403 - CDN 미사용 시 정상입니다.")
+            else:
+                logger.error(f"CDN 운영 지표 수집 실패: {e.response.status_code}")
         except Exception as e:
             logger.error(f"CDN 운영 지표 수집 실패: {e}", exc_info=True)
         
@@ -202,7 +210,8 @@ class ServiceOperationsCollector:
         metrics = []
         
         try:
-            token = await self.auth.get_iam_token()
+            # OBS 전용 API 비밀번호가 있으면 그걸로 토큰 발급
+            token = await self.auth.get_iam_token(use_obs_password=True)
             container_name = self.settings.photo_api_obs_container
             
             base_url = self.auth.get_obs_storage_url()
@@ -220,6 +229,12 @@ class ServiceOperationsCollector:
                     container_info_url,
                     headers={"X-Auth-Token": token}
                 )
+                if info_response.status_code == 403:
+                    logger.warning("Object Storage 운영 지표 403 - API 비밀번호·권한을 확인하세요.")
+                    return metrics
+                if info_response.status_code == 404:
+                    logger.warning(f"Photo API 컨테이너를 찾을 수 없습니다: {container_name}")
+                    return metrics
                 info_response.raise_for_status()
                 
                 # 현재 사용량
@@ -251,10 +266,10 @@ class ServiceOperationsCollector:
                 metrics.extend([obs_storage, obs_objects])
                 
         except httpx.HTTPStatusError as e:
-            if e.response.status_code == 404:
-                logger.warning(f"Photo API 컨테이너를 찾을 수 없습니다: {container_name}")
+            if e.response.status_code in (403, 404):
+                logger.warning("Object Storage 운영 지표 403/404 - API 비밀번호·권한을 확인하세요.")
             else:
-                logger.error(f"Object Storage 운영 지표 수집 실패: {e}")
+                logger.error(f"Object Storage 운영 지표 수집 실패: {e.response.status_code}")
         except Exception as e:
             logger.error(f"Object Storage 운영 지표 수집 실패: {e}", exc_info=True)
         

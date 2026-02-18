@@ -47,7 +47,8 @@ photo-api 서비스 운영에 필요한 핵심 지표:
 # Appkey (DNS Plus, CDN 등에 사용)
 NHN_APPKEY=your-appkey-here
 
-# IAM 인증 (Load Balancer, Object Storage 등에 사용)
+# IAM 인증 (Load Balancer 등)
+# OBS 403 시: 아래 NHN_OBS_API_PASSWORD 설정 또는 본문 "OBS 403 해결" 참고
 NHN_IAM_USER=your-iam-username
 NHN_IAM_PASSWORD=your-iam-password
 NHN_TENANT_ID=your-tenant-id
@@ -92,6 +93,20 @@ APP_VERSION=1.0.0
 ENVIRONMENT=PRODUCTION
 DEBUG=false
 ```
+
+#### Object Storage (OBS) 403 해결 — API 비밀번호 설정
+
+Object Storage 메트릭 수집 시 **403 Forbidden** 이 나오면, **OBS 전용 API 비밀번호**를 쓰도록 설정해야 합니다.
+
+1. **NHN Cloud 콘솔** → **Storage > Object Storage** → **API Endpoint 설정** → **Set API Password** 에 원하는 비밀번호를 입력 후 저장합니다.
+2. Exporter에는 아래 둘 중 하나만 맞추면 됩니다.
+   - **권장:** 환경 변수 **`NHN_OBS_API_PASSWORD`** 에 콘솔에 설정한 **그 API 비밀번호**를 넣습니다.  
+     (OBS 요청만 이 비밀번호로 토큰을 발급하고, RDS 등 다른 서비스는 기존 `NHN_IAM_PASSWORD` 그대로 사용합니다.)
+   - 또는 **`NHN_IAM_PASSWORD`** 를 API 비밀번호로 통일해도 됩니다. (모든 IAM 토큰이 API 비밀번호로 발급됩니다.)
+3. `.env` 수정 후 컨테이너를 재시작합니다.
+
+- **`NHN_OBS_API_PASSWORD`** 를 쓰면 콘솔 로그인 비밀번호는 `NHN_IAM_PASSWORD`에 두고, OBS만 API 비밀번호로 토큰을 받을 수 있습니다.
+- 해당 IAM 사용자(`NHN_IAM_USER`)가 Object Storage를 쓰는 **프로젝트(테넌트)** 멤버여야 합니다.
 
 ### 2. 로컬 실행
 

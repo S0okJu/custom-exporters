@@ -18,32 +18,51 @@ class NHNAuth:
         self._token: Optional[str] = None
         self._token_expires: Optional[datetime] = None
         self._obs_storage_url: Optional[str] = None  # from token serviceCatalog
+        # OBS 전용 토큰 (NHN_OBS_API_PASSWORD 사용 시)
+        self._token_obs: Optional[str] = None
+        self._token_obs_expires: Optional[datetime] = None
+        self._obs_storage_url_obs: Optional[str] = None
     
-    async def get_iam_token(self) -> str:
+    async def get_iam_token(self, use_obs_password: bool = False) -> str:
         """
-        IAM 토큰 획득 (캐싱 및 자동 갱신)
+        IAM 토큰 획득 (캐싱 및 자동 갱신).
+        use_obs_password=True 이고 NHN_OBS_API_PASSWORD가 설정되어 있으면,
+        OBS 전용 API 비밀번호로 토큰 발급(캐시는 별도).
         """
-        # 토큰이 유효하면 반환 (timezone-aware 비교)
-        now_utc = datetime.now(timezone.utc)
-        if (
-            self._token 
-            and self._token_expires 
-            and now_utc < self._token_expires - timedelta(minutes=5)
-        ):
-            return self._token
+        password = self.settings.nhn_obs_api_password if (use_obs_password and self.settings.nhn_obs_api_password) else self.settings.nhn_iam_password
+        cache_obs = use_obs_password and self.settings.nhn_obs_api_password
         
-        # 새 토큰 발급
-        if not self.settings.nhn_iam_user or not self.settings.nhn_iam_password:
-            raise ValueError("IAM 인증 정보가 설정되지 않았습니다.")
+        now_utc = datetime.now(timezone.utc)
+        if cache_obs:
+            if (
+                self._token_obs
+                and self._token_obs_expires
+                and now_utc < self._token_obs_expires - timedelta(minutes=5)
+            ):
+                if self._obs_storage_url_obs is not None:
+                    self._obs_storage_url = self._obs_storage_url_obs
+                return self._token_obs
+        else:
+            if (
+                self._token
+                and self._token_expires
+                and now_utc < self._token_expires - timedelta(minutes=5)
+            ):
+                return self._token
+        
+        if not self.settings.nhn_iam_user or not password:
+            raise ValueError(
+                "IAM 인증 정보가 설정되지 않았습니다."
+                + (" OBS 사용 시 NHN_OBS_API_PASSWORD 또는 NHN_IAM_PASSWORD를 설정하세요." if use_obs_password else "")
+            )
         
         auth_url = f"{self.settings.nhn_auth_url}/tokens"
-        
         auth_data = {
             "auth": {
                 "tenantId": self.settings.nhn_tenant_id,
                 "passwordCredentials": {
                     "username": self.settings.nhn_iam_user,
-                    "password": self.settings.nhn_iam_password
+                    "password": password
                 }
             }
         }
@@ -58,24 +77,30 @@ class NHNAuth:
                 response.raise_for_status()
                 data = response.json()
                 
-                # 토큰 추출
                 access = data.get("access", {})
                 token_data = access.get("token", {})
-                self._token = token_data.get("id")
+                token_id = token_data.get("id")
                 expires_str = token_data.get("expires")
                 
-                if self._token and expires_str:
-                    # ISO 8601 형식 파싱
-                    self._token_expires = datetime.fromisoformat(
-                        expires_str.replace("Z", "+00:00")
-                    )
-                    # Object Storage URL from service catalog (for OBS)
-                    self._obs_storage_url = self._parse_obs_storage_url(access)
-                    logger.info("IAM 토큰 발급 완료")
-                else:
+                if not token_id or not expires_str:
                     raise ValueError("토큰 응답 형식이 올바르지 않습니다.")
                 
-                return self._token
+                expires_dt = datetime.fromisoformat(expires_str.replace("Z", "+00:00"))
+                storage_url = self._parse_obs_storage_url(access)
+                
+                if cache_obs:
+                    self._token_obs = token_id
+                    self._token_obs_expires = expires_dt
+                    self._obs_storage_url_obs = storage_url
+                    self._obs_storage_url = storage_url
+                    logger.info("IAM 토큰 발급 완료 (OBS API 비밀번호)")
+                else:
+                    self._token = token_id
+                    self._token_expires = expires_dt
+                    self._obs_storage_url = storage_url
+                    logger.info("IAM 토큰 발급 완료")
+                
+                return token_id
         except httpx.HTTPStatusError as e:
             logger.error(f"IAM 토큰 발급 실패: {e.response.status_code} - {e.response.text}")
             raise
@@ -120,14 +145,15 @@ class NHNAuth:
             raise ValueError("Appkey가 설정되지 않았습니다.")
         return self.settings.nhn_appkey
     
-    async def get_auth_headers(self, use_iam: bool = True) -> dict:
+    async def get_auth_headers(self, use_iam: bool = True, use_obs_password: bool = False) -> dict:
         """
         인증 헤더 반환
-        use_iam=True: IAM 토큰 사용 (Load Balancer, RDS 등)
+        use_iam=True: IAM 토큰 사용 (Load Balancer, OBS 등)
+        use_obs_password=True: OBS 전용 API 비밀번호로 토큰 발급 (NHN_OBS_API_PASSWORD 설정 시)
         use_iam=False: Appkey 사용 (DNS Plus, CDN 등)
         """
         if use_iam:
-            token = await self.get_iam_token()
+            token = await self.get_iam_token(use_obs_password=use_obs_password)
             return {
                 "X-Auth-Token": token,
                 "Content-Type": "application/json"

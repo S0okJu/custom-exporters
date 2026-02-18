@@ -27,7 +27,8 @@ class OBSCollector:
         metrics = []
         
         try:
-            token = await self.auth.get_iam_token()
+            # OBS 전용 API 비밀번호(NHN_OBS_API_PASSWORD)가 있으면 그걸로 토큰 발급
+            token = await self.auth.get_iam_token(use_obs_password=True)
             headers = {"X-Auth-Token": token, "Accept": "application/json"}
             
             # 스토리지 URL: 토큰 카탈로그 우선, 없으면 설정 기반
@@ -47,6 +48,11 @@ class OBSCollector:
                     containers_url,
                     headers=headers
                 )
+                if response.status_code == 403:
+                    logger.warning(
+                        "Object Storage 접근 거부 (403). API Endpoint 비밀번호·프로젝트 권한을 확인하세요."
+                    )
+                    return []
                 response.raise_for_status()
                 containers = response.text.strip().split("\n") if response.text else []
                 
@@ -105,6 +111,13 @@ class OBSCollector:
                 
                 metrics.extend([container_storage, container_object_count])
                 
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 403:
+                logger.warning("Object Storage 403 - API 비밀번호·권한을 확인하세요.")
+            elif e.response.status_code == 404:
+                logger.warning("Object Storage 404 - 계정/URL을 확인하세요.")
+            else:
+                logger.error(f"Object Storage 메트릭 수집 실패: {e.response.status_code}")
         except Exception as e:
             logger.error(f"Object Storage 메트릭 수집 실패: {e}", exc_info=True)
         

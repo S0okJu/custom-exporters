@@ -35,6 +35,12 @@ class CDNCollector:
             
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.get(url, headers=headers)
+                if response.status_code == 404:
+                    logger.warning(
+                        "CDN 서비스를 찾을 수 없습니다 (404). CDN 미사용 시 정상입니다. "
+                        "사용 중이라면 Appkey·CDN API URL을 확인하세요."
+                    )
+                    return []
                 response.raise_for_status()
                 data = response.json()
                 
@@ -76,6 +82,11 @@ class CDNCollector:
                 
                 metrics.append(cdn_status)
                 
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 404:
+                logger.warning("CDN API 404 - CDN 미사용 시 정상입니다.")
+            else:
+                logger.error(f"CDN 메트릭 수집 실패: {e.response.status_code} - {e.response.text}")
         except Exception as e:
             logger.error(f"CDN 메트릭 수집 실패: {e}", exc_info=True)
         
