@@ -5,12 +5,22 @@ FastAPI application that exposes Prometheus metrics for NHN Cloud services
 import asyncio
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import AsyncGenerator
 
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 from prometheus_client.core import CollectorRegistry
 from starlette.responses import Response
+
+# .env 파일 로드 (프로젝트 루트에서 찾기)
+env_path = Path(__file__).parent.parent / ".env"
+if env_path.exists():
+    load_dotenv(env_path)
+else:
+    # 현재 디렉토리에서도 시도
+    load_dotenv()
 
 from app.config import get_settings
 from app.auth import NHNAuth

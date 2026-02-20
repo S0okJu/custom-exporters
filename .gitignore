@@ -1,2 +1,4 @@
 photo-api/
 .DS_Store
+.env
+.sample

@@ -32,7 +32,7 @@ class LoadBalancerCollector:
             # Load Balancer 목록 조회
             url = f"{self.api_url}/v2.0/lbaas/loadbalancers"
             
-            async with httpx.AsyncClient(timeout=30.0) as client:
+            async with httpx.AsyncClient(timeout=self.settings.http_timeout) as client:
                 response = await client.get(url, headers=headers)
                 response.raise_for_status()
                 data = response.json()

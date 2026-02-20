@@ -17,8 +17,7 @@ class InstanceCollector:
     def __init__(self, auth: NHNAuth):
         self.auth = auth
         self.settings = get_settings()
-        # Cloud Monitoring API는 Compute API와 동일한 엔드포인트 사용 가능
-        self.api_url = "https://kr1-api-compute.infrastructure.nhncloudservice.com"
+        self.api_url = self.settings.nhn_compute_api_url
     
     async def collect(self) -> List:
         """인스턴스 메트릭 수집"""
@@ -33,7 +32,7 @@ class InstanceCollector:
             # 인스턴스 목록 조회
             url = f"{self.api_url}/v2.0/servers"
             
-            async with httpx.AsyncClient(timeout=30.0) as client:
+            async with httpx.AsyncClient(timeout=self.settings.http_timeout) as client:
                 response = await client.get(url, headers=headers)
                 response.raise_for_status()
                 data = response.json()

@@ -35,7 +35,7 @@ class RDSCollector:
             # RDS 인스턴스 목록 조회 (v3.0 API)
             url = f"{self.api_url}/rds/api/v3.0/db-instances"
             
-            async with httpx.AsyncClient(timeout=30.0) as client:
+            async with httpx.AsyncClient(timeout=self.settings.http_timeout) as client:
                 response = await client.get(url, headers=headers)
                 response.raise_for_status()
                 data = response.json()

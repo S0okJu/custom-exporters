@@ -74,7 +74,7 @@ class NHNAuth:
         }
         
         try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
+            async with httpx.AsyncClient(timeout=self.settings.http_timeout) as client:
                 response = await client.post(
                     auth_url,
                     json=auth_data,

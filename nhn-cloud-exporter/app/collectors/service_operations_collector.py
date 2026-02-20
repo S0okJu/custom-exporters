@@ -36,7 +36,7 @@ class ServiceOperationsCollector:
         
         try:
             # 1. CDN 운영 지표 (캐시 효율성, 대역폭)
-            if self.settings.photo_api_cdn_app_key:
+            if self.settings.photo_api_cdn_app_key or self.settings.photo_api_cdn_service_id:
                 cdn_metrics = await self._collect_cdn_operations()
                 metrics.extend(cdn_metrics)
             
@@ -71,36 +71,57 @@ class ServiceOperationsCollector:
         
         try:
             appkey = self.auth.get_appkey()
-            cdn_app_key = self.settings.photo_api_cdn_app_key
             headers = await self.auth.get_auth_headers(use_iam=False)
             
             api_url = self.settings.nhn_cdn_api_url
             
-            # CDN 서비스 조회
-            services_url = f"{api_url}/v2.0/appKeys/{appkey}/services"
+            # Photo API CDN 서비스 ID 확인
+            service_id = self.settings.photo_api_cdn_service_id.strip() if self.settings.photo_api_cdn_service_id else None
+            service_name = ""
             
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.get(services_url, headers=headers)
-                if response.status_code == 404:
-                    logger.warning("CDN 서비스 목록 404 - CDN 미사용 시 정상입니다.")
-                    return metrics
-                response.raise_for_status()
-                data = response.json()
-                
-                services = data.get("services", [])
-                
-                # Photo API CDN 서비스 찾기
-                photo_api_cdn_service = None
-                for service in services:
-                    if service.get("appKey") == cdn_app_key:
-                        photo_api_cdn_service = service
-                        break
-                
-                if not photo_api_cdn_service:
-                    logger.warning(f"Photo API CDN 서비스를 찾을 수 없습니다: {cdn_app_key}")
-                    return metrics
-                
-                service_id = photo_api_cdn_service.get("serviceId", "")
+            async with httpx.AsyncClient(timeout=self.settings.http_timeout) as client:
+                # service_id가 직접 지정되지 않은 경우 app_key로 찾기
+                if not service_id:
+                    cdn_app_key = self.settings.photo_api_cdn_app_key
+                    if not cdn_app_key:
+                        logger.warning("Photo API CDN 서비스 ID 또는 App Key가 설정되지 않았습니다.")
+                        return metrics
+                    
+                    # CDN 서비스 조회
+                    services_url = f"{api_url}/v2.0/appKeys/{appkey}/services"
+                    
+                    response = await client.get(services_url, headers=headers)
+                    if response.status_code == 404:
+                        logger.warning("CDN 서비스 목록 404 - CDN 미사용 시 정상입니다.")
+                        return metrics
+                    response.raise_for_status()
+                    data = response.json()
+                    
+                    services = data.get("services", [])
+                    
+                    # Photo API CDN 서비스 찾기
+                    photo_api_cdn_service = None
+                    for service in services:
+                        if service.get("appKey") == cdn_app_key:
+                            photo_api_cdn_service = service
+                            break
+                    
+                    if not photo_api_cdn_service:
+                        logger.warning(f"Photo API CDN 서비스를 찾을 수 없습니다: {cdn_app_key}")
+                        return metrics
+                    
+                    service_id = photo_api_cdn_service.get("serviceId", "")
+                    service_name = photo_api_cdn_service.get("serviceName", "")
+                else:
+                    # service_id가 직접 지정된 경우 서비스 정보 조회 (선택사항)
+                    try:
+                        service_url = f"{api_url}/v2.0/appKeys/{appkey}/services/{service_id}"
+                        service_response = await client.get(service_url, headers=headers)
+                        if service_response.status_code == 200:
+                            service_data = service_response.json()
+                            service_name = service_data.get("service", {}).get("serviceName", "")
+                    except Exception:
+                        pass  # 서비스 이름 조회 실패해도 계속 진행
                 
                 # CDN 통계 조회 (캐시 히트율, 대역폭 등)
                 # 실제 API 엔드포인트는 NHN Cloud 문서 확인 필요
@@ -154,7 +175,7 @@ class ServiceOperationsCollector:
                         if total_requests > 0:
                             hit_rate = cache_hits / total_requests
                             cache_hit_rate.add_metric(
-                                [service_id, photo_api_cdn_service.get("serviceName", "")],
+                                [service_id, service_name or service_id],
                                 hit_rate
                             )
                         
@@ -162,21 +183,21 @@ class ServiceOperationsCollector:
                         bandwidth_in = stat.get("bandwidthIn", 0)
                         bandwidth_out = stat.get("bandwidthOut", 0)
                         bandwidth_usage.add_metric(
-                            [service_id, photo_api_cdn_service.get("serviceName", ""), "in"],
+                            [service_id, service_name or service_id, "in"],
                             float(bandwidth_in)
                         )
                         bandwidth_usage.add_metric(
-                            [service_id, photo_api_cdn_service.get("serviceName", ""), "out"],
+                            [service_id, service_name or service_id, "out"],
                             float(bandwidth_out)
                         )
                         
                         # 요청 수
                         request_count.add_metric(
-                            [service_id, photo_api_cdn_service.get("serviceName", ""), "hit"],
+                            [service_id, service_name or service_id, "hit"],
                             cache_hits
                         )
                         request_count.add_metric(
-                            [service_id, photo_api_cdn_service.get("serviceName", ""), "miss"],
+                            [service_id, service_name or service_id, "miss"],
                             cache_misses
                         )
                     
@@ -224,7 +245,7 @@ class ServiceOperationsCollector:
                 api_url = self.settings.nhn_obs_api_url
                 container_info_url = f"{api_url}/v1/{account}/{container_name}"
             
-            async with httpx.AsyncClient(timeout=30.0) as client:
+            async with httpx.AsyncClient(timeout=self.settings.http_timeout) as client:
                 info_response = await client.head(
                     container_info_url,
                     headers={"X-Auth-Token": token}
@@ -297,7 +318,7 @@ class ServiceOperationsCollector:
                 "period": "1m",
             }
             
-            async with httpx.AsyncClient(timeout=30.0) as client:
+            async with httpx.AsyncClient(timeout=self.settings.http_timeout) as client:
                 response = await client.get(metrics_url, headers=headers, params=params)
                 response.raise_for_status()
                 data = response.json()
@@ -394,7 +415,7 @@ class ServiceOperationsCollector:
             
             api_url = self.settings.nhn_lb_api_url
             
-            async with httpx.AsyncClient(timeout=30.0) as client:
+            async with httpx.AsyncClient(timeout=self.settings.http_timeout) as client:
                 # Load Balancer별 Pool Member 상태 조회
                 lb_member_health = GaugeMetricFamily(
                     "photo_api_lb_pool_member_health_ratio",
@@ -461,7 +482,7 @@ class ServiceOperationsCollector:
             
             api_url = self.settings.nhn_dnsplus_api_url
             
-            async with httpx.AsyncClient(timeout=30.0) as client:
+            async with httpx.AsyncClient(timeout=self.settings.http_timeout) as client:
                 # GSLB 목록 조회
                 gslbs_url = f"{api_url}/dnsplus/v1.0/appkeys/{appkey}/gslbs"
                 gslbs_response = await client.get(gslbs_url, headers=headers)

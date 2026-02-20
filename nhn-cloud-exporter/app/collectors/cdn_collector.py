@@ -33,7 +33,7 @@ class CDNCollector:
             # CDN 서비스 목록 조회 (v2.0 API)
             url = f"{self.api_url}/v2.0/appKeys/{appkey}/services"
             
-            async with httpx.AsyncClient(timeout=30.0) as client:
+            async with httpx.AsyncClient(timeout=self.settings.http_timeout) as client:
                 response = await client.get(url, headers=headers)
                 if response.status_code == 404:
                     logger.warning(

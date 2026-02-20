@@ -1,10 +1,21 @@
 """
 Configuration for NHN Cloud Exporter.
 """
+import os
 from enum import Enum
 from functools import lru_cache
+from pathlib import Path
 from pydantic_settings import BaseSettings
 from pydantic import Field
+from dotenv import load_dotenv
+
+# .env 파일 로드 (프로젝트 루트에서 찾기)
+env_path = Path(__file__).parent.parent / ".env"
+if env_path.exists():
+    load_dotenv(env_path)
+else:
+    # 현재 디렉토리에서도 시도
+    load_dotenv()
 
 
 class Environment(str, Enum):
@@ -64,6 +75,10 @@ class Settings(BaseSettings):
         default="https://kr1-api-object-storage.nhncloudservice.com",
         description="Object Storage API URL"
     )
+    nhn_compute_api_url: str = Field(
+        default="https://kr1-api-compute.infrastructure.nhncloudservice.com",
+        description="Compute API URL (Instance metrics)"
+    )
     
     # Monitoring Configuration
     metrics_collection_interval: int = Field(
@@ -73,6 +88,10 @@ class Settings(BaseSettings):
     metrics_cache_ttl: int = Field(
         default=30,
         description="메트릭 캐시 TTL (초)"
+    )
+    http_timeout: float = Field(
+        default=30.0,
+        description="HTTP 요청 타임아웃 (초)"
     )
     
     # Service-specific settings
@@ -115,7 +134,11 @@ class Settings(BaseSettings):
     )
     photo_api_cdn_app_key: str = Field(
         default="",
-        description="Photo API CDN App Key (CDN 통계 조회용)"
+        description="Photo API CDN App Key (CDN 통계 조회용, service_id 미지정 시 사용)"
+    )
+    photo_api_cdn_service_id: str = Field(
+        default="",
+        description="Photo API CDN Service ID (직접 지정 시 app_key 대신 사용)"
     )
     photo_api_rds_instance_id: str = Field(
         default="",
@@ -127,7 +150,8 @@ class Settings(BaseSettings):
     )
     
     class Config:
-        env_file = None
+        env_file = ".env"
+        env_file_encoding = "utf-8"
         case_sensitive = False
 
 

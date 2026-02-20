@@ -43,7 +43,7 @@ class OBSCollector:
                 account = f"AUTH_{tenant_id}"
                 containers_url = f"{self.api_url}/v1/{account}"
             
-            async with httpx.AsyncClient(timeout=30.0) as client:
+            async with httpx.AsyncClient(timeout=self.settings.http_timeout) as client:
                 response = await client.get(
                     containers_url,
                     headers=headers
