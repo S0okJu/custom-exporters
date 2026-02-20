@@ -138,11 +138,7 @@ class Settings(BaseSettings):
     )
     photo_api_cdn_app_key: str = Field(
         default="",
-        description="Photo API CDN App Key (CDN 통계 조회용, service_id 미지정 시 사용)"
-    )
-    photo_api_cdn_service_id: str = Field(
-        default="",
-        description="Photo API CDN Service ID (직접 지정 시 app_key 대신 사용)"
+        description="Photo API CDN App Key (CDN 서비스 식별용, CDN 콘솔에서 확인)"
     )
     photo_api_rds_instance_id: str = Field(
         default="",

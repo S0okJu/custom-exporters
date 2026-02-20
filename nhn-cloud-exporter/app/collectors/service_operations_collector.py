@@ -36,7 +36,7 @@ class ServiceOperationsCollector:
         
         try:
             # 1. CDN 운영 지표 (캐시 효율성, 대역폭)
-            if self.settings.photo_api_cdn_app_key or self.settings.photo_api_cdn_service_id:
+            if self.settings.photo_api_cdn_app_key:
                 cdn_metrics = await self._collect_cdn_operations()
                 metrics.extend(cdn_metrics)
             
@@ -75,53 +75,38 @@ class ServiceOperationsCollector:
             
             api_url = self.settings.nhn_cdn_api_url
             
-            # Photo API CDN 서비스 ID 확인
-            service_id = self.settings.photo_api_cdn_service_id.strip() if self.settings.photo_api_cdn_service_id else None
-            service_name = ""
+            cdn_app_key = self.settings.photo_api_cdn_app_key
+            if not cdn_app_key:
+                logger.warning("Photo API CDN App Key가 설정되지 않았습니다.")
+                return metrics
             
             async with httpx.AsyncClient(timeout=self.settings.http_timeout) as client:
-                # service_id가 직접 지정되지 않은 경우 app_key로 찾기
-                if not service_id:
-                    cdn_app_key = self.settings.photo_api_cdn_app_key
-                    if not cdn_app_key:
-                        logger.warning("Photo API CDN 서비스 ID 또는 App Key가 설정되지 않았습니다.")
-                        return metrics
-                    
-                    # CDN 서비스 조회
-                    services_url = f"{api_url}/v2.0/appKeys/{appkey}/services"
-                    
-                    response = await client.get(services_url, headers=headers)
-                    if response.status_code == 404:
-                        logger.warning("CDN 서비스 목록 404 - CDN 미사용 시 정상입니다.")
-                        return metrics
-                    response.raise_for_status()
-                    data = response.json()
-                    
-                    services = data.get("services", [])
-                    
-                    # Photo API CDN 서비스 찾기
-                    photo_api_cdn_service = None
-                    for service in services:
-                        if service.get("appKey") == cdn_app_key:
-                            photo_api_cdn_service = service
-                            break
-                    
-                    if not photo_api_cdn_service:
-                        logger.warning(f"Photo API CDN 서비스를 찾을 수 없습니다: {cdn_app_key}")
-                        return metrics
-                    
-                    service_id = photo_api_cdn_service.get("serviceId", "")
-                    service_name = photo_api_cdn_service.get("serviceName", "")
-                else:
-                    # service_id가 직접 지정된 경우 서비스 정보 조회 (선택사항)
-                    try:
-                        service_url = f"{api_url}/v2.0/appKeys/{appkey}/services/{service_id}"
-                        service_response = await client.get(service_url, headers=headers)
-                        if service_response.status_code == 200:
-                            service_data = service_response.json()
-                            service_name = service_data.get("service", {}).get("serviceName", "")
-                    except Exception:
-                        pass  # 서비스 이름 조회 실패해도 계속 진행
+                # CDN 서비스 조회
+                services_url = f"{api_url}/v2.0/appKeys/{appkey}/services"
+                
+                response = await client.get(services_url, headers=headers)
+                if response.status_code == 404:
+                    logger.warning("CDN 서비스 목록 404 - CDN 미사용 시 정상입니다.")
+                    return metrics
+                response.raise_for_status()
+                data = response.json()
+                
+                services = data.get("services", [])
+                
+                # Photo API CDN 서비스 찾기 (AppKey로 식별)
+                photo_api_cdn_service = None
+                for service in services:
+                    if service.get("appKey") == cdn_app_key:
+                        photo_api_cdn_service = service
+                        break
+                
+                if not photo_api_cdn_service:
+                    logger.warning(f"Photo API CDN 서비스를 찾을 수 없습니다: {cdn_app_key}")
+                    return metrics
+                
+                # 서비스 정보 추출 (serviceId가 있으면 사용, 없으면 다른 필드 사용)
+                service_id = photo_api_cdn_service.get("serviceId") or photo_api_cdn_service.get("id") or cdn_app_key
+                service_name = photo_api_cdn_service.get("serviceName") or photo_api_cdn_service.get("name") or ""
                 
                 # CDN 통계 조회 (캐시 히트율, 대역폭 등)
                 # 실제 API 엔드포인트는 NHN Cloud 문서 확인 필요
