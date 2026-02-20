@@ -27,8 +27,8 @@ class CDNCollector:
         metrics = []
         
         try:
-            appkey = self.auth.get_appkey()
-            headers = await self.auth.get_auth_headers(use_iam=False)
+            appkey = self.auth.get_appkey(service="cdn")
+            headers = await self.auth.get_auth_headers(use_iam=False, service="cdn")
             
             # CDN 서비스 목록 조회 (v2.0 API)
             url = f"{self.api_url}/v2.0/appKeys/{appkey}/services"

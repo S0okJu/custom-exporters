@@ -27,8 +27,8 @@ class GSLBCollector:
         metrics = []
         
         try:
-            appkey = self.auth.get_appkey()
-            headers = await self.auth.get_auth_headers(use_iam=False)
+            appkey = self.auth.get_appkey(service="dnsplus")
+            headers = await self.auth.get_auth_headers(use_iam=False, service="dnsplus")
             
             # GSLB 목록 조회
             url = f"{self.api_url}/dnsplus/v1.0/appkeys/{appkey}/gslbs"

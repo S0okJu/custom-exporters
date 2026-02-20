@@ -70,8 +70,8 @@ class ServiceOperationsCollector:
         metrics = []
         
         try:
-            appkey = self.auth.get_appkey()
-            headers = await self.auth.get_auth_headers(use_iam=False)
+            appkey = self.auth.get_appkey(service="cdn")
+            headers = await self.auth.get_auth_headers(use_iam=False, service="cdn")
             
             api_url = self.settings.nhn_cdn_api_url
             
@@ -477,8 +477,8 @@ class ServiceOperationsCollector:
         metrics = []
         
         try:
-            appkey = self.auth.get_appkey()
-            headers = await self.auth.get_auth_headers(use_iam=False)
+            appkey = self.auth.get_appkey(service="dnsplus")
+            headers = await self.auth.get_auth_headers(use_iam=False, service="dnsplus")
             
             api_url = self.settings.nhn_dnsplus_api_url
             

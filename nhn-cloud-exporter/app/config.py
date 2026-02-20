@@ -39,8 +39,12 @@ class Settings(BaseSettings):
     debug: bool = Field(default=False)
     
     # NHN Cloud API Authentication
-    # Appkey 방식 (DNS Plus, CDN 등)
-    nhn_appkey: str = Field(default="", description="NHN Cloud Appkey")
+    # 서비스별 Appkey (각 서비스마다 다른 Appkey가 필요할 수 있음)
+    nhn_dnsplus_appkey: str = Field(default="", description="DNS Plus Appkey (GSLB용)")
+    nhn_cdn_appkey: str = Field(default="", description="CDN Appkey (CDN용)")
+    nhn_rds_appkey: str = Field(default="", description="RDS Appkey (RDS API v3용, X-TC-APP-KEY 헤더)")
+    # 하위 호환성을 위한 기본 Appkey (설정되지 않은 경우 DNS Plus/CDN/RDS Appkey로 폴백)
+    nhn_appkey: str = Field(default="", description="NHN Cloud Appkey (하위 호환성, 서비스별 Appkey 미지정 시 사용)")
     
     # IAM 인증 (Load Balancer, RDS 등)
     nhn_iam_user: str = Field(default="", description="IAM 사용자명")

@@ -136,27 +136,42 @@ class NHNAuth:
         RDS API v3 인증 헤더 (X-TC-APP-KEY, X-TC-AUTHENTICATION-*).
         설정되어 있으면 반환, 없으면 None (IAM 사용).
         """
-        if not self.settings.nhn_appkey or not self.settings.nhn_access_key_id or not self.settings.nhn_access_key_secret:
+        # RDS Appkey 우선, 없으면 기본 Appkey 사용
+        rds_appkey = self.settings.nhn_rds_appkey or self.settings.nhn_appkey
+        if not rds_appkey or not self.settings.nhn_access_key_id or not self.settings.nhn_access_key_secret:
             return None
         return {
-            "X-TC-APP-KEY": self.settings.nhn_appkey,
+            "X-TC-APP-KEY": rds_appkey,
             "X-TC-AUTHENTICATION-ID": self.settings.nhn_access_key_id,
             "X-TC-AUTHENTICATION-SECRET": self.settings.nhn_access_key_secret,
             "Content-Type": "application/json",
         }
     
-    def get_appkey(self) -> str:
-        """Appkey 반환"""
-        if not self.settings.nhn_appkey:
-            raise ValueError("Appkey가 설정되지 않았습니다.")
-        return self.settings.nhn_appkey
+    def get_appkey(self, service: str = "default") -> str:
+        """
+        서비스별 Appkey 반환
+        service: "dnsplus", "cdn", "rds", "default"
+        """
+        if service == "dnsplus":
+            appkey = self.settings.nhn_dnsplus_appkey or self.settings.nhn_appkey
+        elif service == "cdn":
+            appkey = self.settings.nhn_cdn_appkey or self.settings.nhn_appkey
+        elif service == "rds":
+            appkey = self.settings.nhn_rds_appkey or self.settings.nhn_appkey
+        else:
+            appkey = self.settings.nhn_appkey
+        
+        if not appkey:
+            raise ValueError(f"{service} Appkey가 설정되지 않았습니다. NHN_{service.upper()}_APPKEY 또는 NHN_APPKEY를 설정하세요.")
+        return appkey
     
-    async def get_auth_headers(self, use_iam: bool = True, use_obs_password: bool = False) -> dict:
+    async def get_auth_headers(self, use_iam: bool = True, use_obs_password: bool = False, service: str = "default") -> dict:
         """
         인증 헤더 반환
         use_iam=True: IAM 토큰 사용 (Load Balancer, OBS 등)
         use_obs_password=True: OBS 전용 API 비밀번호로 토큰 발급 (NHN_OBS_API_PASSWORD 설정 시)
         use_iam=False: Appkey 사용 (DNS Plus, CDN 등)
+        service: "dnsplus", "cdn", "rds", "default" (use_iam=False일 때만 사용)
         """
         if use_iam:
             token = await self.get_iam_token(use_obs_password=use_obs_password)
@@ -166,6 +181,6 @@ class NHNAuth:
             }
         else:
             return {
-                "X-TC-APP-KEY": self.get_appkey(),
+                "X-TC-APP-KEY": self.get_appkey(service=service),
                 "Content-Type": "application/json"
             }
